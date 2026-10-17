@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../browser/browser_page.dart';
 import '../catalog/install_run.dart';
 import '../catalog/models.dart';
 import '../state/catalog_store.dart';
@@ -15,6 +16,17 @@ Future<bool> startStoreInstall(BuildContext context, ConsoleSession session, Cat
     MaterialPageRoute(builder: (_) => StoreInstallPage(session: session, catalog: catalog, app: app)),
   );
   return done ?? false;
+}
+
+Future<bool> browseAndInstall(BuildContext context, ConsoleSession session, CatalogStore catalog, CatalogApp app, Uri start) async {
+  if (!BrowserPage.supported) {
+    await openLink(context, start.toString());
+    return false;
+  }
+  final got = await BrowserPage.open(context, start);
+  if (got == null || !context.mounted) return false;
+  final picked = app.copyWith(downloads: classifyDownloads([CatalogDownload(label: got.name, url: got.url.toString())], variants: true));
+  return startStoreInstall(context, session, catalog, picked);
 }
 
 class StoreInstallPage extends StatefulWidget {

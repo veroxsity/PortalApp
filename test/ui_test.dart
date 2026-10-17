@@ -371,7 +371,7 @@ void main() {
 
       await tester.tap(find.text('Store'));
       await tester.pumpAndSettle();
-      expect(find.text('Raccoon Dev Store  ·  3 apps'), findsOneWidget);
+      expect(find.text('3 apps'), findsOneWidget);
 
       await tester.tap(find.text('Console'));
       await tester.pumpAndSettle();

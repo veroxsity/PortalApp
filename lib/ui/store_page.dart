@@ -85,22 +85,17 @@ class _StorePageState extends State<StorePage> {
             children: [
               PageHeader(
                 title: 'Store',
-                subtitle: catalog.loaded ? 'Raccoon Dev Store  ·  ${catalog.apps.length} ${catalog.apps.length == 1 ? 'app' : 'apps'}' : 'Raccoon Dev Store',
+                subtitle: catalog.loaded ? '${catalog.apps.length} ${catalog.apps.length == 1 ? 'app' : 'apps'}' : 'Raccoon, Emulation Revival, Xbox Dev Store',
                 trailing: IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: catalog.loading ? null : catalog.load),
               ),
               SearchField(controller: _search, hint: 'Search the store'),
               if (categories.length > 1)
-                SizedBox(
-                  height: 48,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: Brand.s4, vertical: Brand.s2),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Brand.s4, vertical: Brand.s2),
+                  child: Wrap(
+                    spacing: Brand.s2,
                     children: [
-                      for (final c in ['All', ...categories])
-                        Padding(
-                          padding: const EdgeInsets.only(right: Brand.s2),
-                          child: ChoiceChip(label: Text(c), selected: _category == c, onSelected: (_) => setState(() => _category = c)),
-                        ),
+                      for (final c in ['All', ...categories]) ChoiceChip(label: Text(c), selected: _category == c, onSelected: (_) => setState(() => _category = c)),
                     ],
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:koni_archive/io.dart';
 import 'package:flutter/foundation.dart';
 
 import '../portal/install_plan.dart';
@@ -9,6 +10,7 @@ import '../state/console_session.dart';
 import '../ui/errors.dart';
 import 'catalog_client.dart';
 import 'models.dart';
+import 'sources/link_resolver.dart';
 
 enum StepStatus { pending, active, done, skipped, failed }
 
@@ -34,7 +36,7 @@ String megabytes(int bytes) {
 class InstallRun extends ChangeNotifier {
   InstallRun({required this.app, required this.catalog, required this.session, this.onInstalled});
 
-  final CatalogApp app;
+  CatalogApp app;
   final CatalogClient catalog;
   final ConsoleSession session;
 
@@ -72,14 +74,20 @@ class InstallRun extends ChangeNotifier {
     final temp = await Directory.systemTemp.createTemp('portalapp_');
     var current = steps.first;
     try {
+      if (app.needsResolving) {
+        current = steps[0];
+        _set(current, StepStatus.active, detail: 'Finding the download', fraction: null);
+        app = await LinkResolver(catalog.text).resolve(app);
+      }
       final main = app.mainPackage;
-      if (main == null) throw PortalException('${app.name} has no package to install.');
+      final archive = app.archive;
+      if (main == null && archive == null) throw PortalException('${app.name} has no package to install.');
 
       // download
       current = steps[0];
-      final wanted = [main, ...app.dependencies];
       final files = <File>[];
       _set(current, StepStatus.active, detail: 'Starting', fraction: null);
+      final wanted = main == null ? [archive!] : [main, ...app.dependencies];
       for (var i = 0; i < wanted.length; i++) {
         final d = wanted[i];
         final label = wanted.length == 1 ? d.name : '${d.name} (${i + 1} of ${wanted.length})';
@@ -94,7 +102,14 @@ class InstallRun extends ChangeNotifier {
           },
         ));
       }
-      _set(current, StepStatus.done, detail: wanted.length == 1 ? main.name : '${wanted.length} files');
+      if (main == null) {
+        _set(current, StepStatus.active, detail: 'Unpacking ${archive!.name}', fraction: null);
+        final unpacked = await unpackPackages(files.first, Directory('${temp.path}${Platform.pathSeparator}unpacked'));
+        files
+          ..clear()
+          ..addAll(unpacked);
+      }
+      _set(current, StepStatus.done, detail: files.length == 1 ? files.first.uri.pathSegments.last : '${files.length} files');
 
       // check
       current = steps[1];
@@ -153,4 +168,46 @@ class InstallRun extends ChangeNotifier {
       } catch (_) {}
     }
   }
+}
+
+bool _isPackage(String path) {
+  final lower = path.toLowerCase();
+  return packageExtensions.any((e) => lower.endsWith('.$e'));
+}
+
+Future<List<File>> unpackPackages(File zip, Directory into) async {
+  await into.create(recursive: true);
+  final found = <File>[];
+  final archive = await openArchiveFile(zip.path);
+  try {
+    for (final entry in archive.entries) {
+      if (entry.type != ArchiveEntryType.file || !_isPackage(entry.path)) continue;
+      final folder = await Directory('${into.path}${Platform.pathSeparator}${found.length}').create();
+      final out = File('${folder.path}${Platform.pathSeparator}${entry.path.split('/').last}');
+      final sink = out.openWrite();
+      try {
+        await sink.addStream(archive.openRead(entry));
+      } finally {
+        await sink.close();
+      }
+      found.add(out);
+    }
+  } finally {
+    await archive.close();
+  }
+  if (found.isEmpty) throw PortalException('There is no app package inside ${zip.uri.pathSegments.last}.');
+
+  final infos = <PackageInfo>[];
+  for (final f in found) {
+    infos.add(await readPackageInfo(f));
+  }
+  bool framework(PackageInfo i) => i.name.toLowerCase().startsWith('microsoft.');
+  final apps = [for (final i in infos) if (!framework(i)) i]
+    ..sort((a, b) {
+      final da = a.fileName.toLowerCase().contains('debug') ? 1 : 0;
+      final db = b.fileName.toLowerCase().contains('debug') ? 1 : 0;
+      return da != db ? da - db : a.fileName.compareTo(b.fileName);
+    });
+  if (apps.isEmpty) throw PortalException('There is no app package inside ${zip.uri.pathSegments.last}.');
+  return [apps.first.file, for (final i in infos) if (framework(i)) i.file];
 }

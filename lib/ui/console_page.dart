@@ -69,10 +69,29 @@ class ConsolePage extends StatelessWidget {
                   onChanged: session.setShowSystemApps,
                 ),
                 const Divider(),
-                const SectionLabel('Store'),
+                const SectionLabel('Stores'),
+                for (final st in catalog.stores)
+                  SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: Brand.s4),
+                    title: Text(st.name, style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+                    subtitle: Text(
+                      !st.enabled
+                          ? 'Off'
+                          : st.error != null
+                              ? st.error!
+                              : st.count == null
+                                  ? 'Loading'
+                                  : '${st.count} ${st.count == 1 ? 'app' : 'apps'}',
+                      style: text.bodySmall?.copyWith(fontSize: 13, color: st.enabled && st.error != null ? Brand.error : null),
+                    ),
+                    value: st.enabled,
+                    activeThumbColor: Brand.accentInk,
+                    activeTrackColor: Brand.accent,
+                    onChanged: (on) => catalog.setStoreEnabled(st.id, on),
+                  ),
                 ListRow(
-                  title: 'Catalogue',
-                  subtitle: custom ? catalog.url : 'Raccoon Dev Store',
+                  title: 'Raccoon catalogue address',
+                  subtitle: custom ? catalog.url : 'Default',
                   trailing: const Icon(Icons.edit_outlined, size: 18, color: Brand.faint),
                   onTap: () => _editCatalogue(context),
                 ),
@@ -84,6 +103,12 @@ class ConsolePage extends StatelessWidget {
                       child: TextButton(onPressed: () => catalog.setUrl(''), child: const Text('Use Raccoon Dev Store')),
                     ),
                   ),
+                ListRow(
+                  title: 'Reload stores',
+                  subtitle: catalog.loading ? 'Loading' : 'Fetch every store again',
+                  trailing: const Icon(Icons.refresh, size: 18, color: Brand.faint),
+                  onTap: catalog.loading ? null : catalog.load,
+                ),
                 const SectionLabel('About'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Brand.s4),

@@ -64,14 +64,15 @@ void main() {
       expect(app.mainPackage!.name, 'App.appx');
     });
 
-    test('a releases page can only be opened, not installed', () {
+    test('a releases page is resolved to real files when installing', () {
       final app = parse({
         'name': 'T',
         'downloads': [
           {'label': 'Download from GitHub', 'url': 'https://github.com/example/project/releases/latest'},
         ],
       });
-      expect(app.installable, isFalse);
+      expect(app.installable, isTrue);
+      expect(app.needsResolving, isTrue);
       expect(app.links.single.role, DownloadRole.link);
     });
 

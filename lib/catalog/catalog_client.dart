@@ -38,7 +38,9 @@ class CatalogClient {
 
   final Uri base;
 
-  HttpClient _newHttp() => HttpClient()..connectionTimeout = const Duration(seconds: 10);
+  HttpClient _newHttp() => HttpClient()
+    ..connectionTimeout = const Duration(seconds: 10)
+    ..userAgent = 'PortalApp (+https://github.com/veroxsity/PortalApp)';
 
   Future<String> _text(Uri uri) async {
     final http = _newHttp();
@@ -56,6 +58,8 @@ class CatalogClient {
       http.close(force: true);
     }
   }
+
+  Future<String> text(Uri uri) => _text(uri);
 
   Future<CatalogLoad> load() async {
     final index = jsonDecode(await _text(base.resolve('catalog.json')));
@@ -81,7 +85,7 @@ class CatalogClient {
     return CatalogLoad(apps, failed);
   }
 
-  Future<String> about(CatalogApp app) => _text(app.aboutUri);
+  Future<String> about(CatalogApp app) async => app.aboutText ?? await _text(app.aboutUri);
 
   Future<String> checksumFor(CatalogApp app, CatalogDownload d) async {
     final hash = parseChecksum(await _text(app.resolve(d)));
