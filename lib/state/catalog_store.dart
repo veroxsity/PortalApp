@@ -26,9 +26,8 @@ class StoreStatus {
 }
 
 class CatalogStore extends ChangeNotifier {
-  CatalogStore({String? url, CatalogClient Function(String url)? clientFactory, List<StoreSource>? extraSources})
-      : _url = url ?? defaultCatalogueUrl,
-        _factory = clientFactory ?? CatalogClient.new,
+  CatalogStore({CatalogClient Function(String url)? clientFactory, List<StoreSource>? extraSources})
+      : _factory = clientFactory ?? CatalogClient.new,
         _extra = extraSources ?? (clientFactory == null ? const [RevivalSource(), DevStoreSource()] : const []);
 
   final List<StoreSource> _extra;
@@ -37,14 +36,15 @@ class CatalogStore extends ChangeNotifier {
 
   final CatalogClient Function(String url) _factory;
 
-  static const _urlKey = 'catalogue_url';
   static const _learnedKey = 'catalogue_learned';
   static const _disabledKey = 'stores_disabled';
+
+  // raccoon dev store is the app's own catalogue, it is never disabled and never pointed elsewhere
+  static const _raccoonId = 'raccoon';
 
   Set<String> _disabled = {};
   final Map<String, int> _counts = {};
 
-  String _url;
   List<CatalogApp> apps = [];
   List<String> failed = [];
   bool loading = false;
@@ -54,14 +54,12 @@ class CatalogStore extends ChangeNotifier {
   // slug to the package identity name it installed as, so updates are found without guessing
   Map<String, String> _learned = {};
 
-  String get url => _url;
-  CatalogClient get client => _factory(_url);
+  CatalogClient get client => _factory(defaultCatalogueUrl);
 
   Future<void> restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _url = prefs.getString(_urlKey) ?? _url;
-      _disabled = (prefs.getStringList(_disabledKey) ?? const []).toSet();
+      _disabled = (prefs.getStringList(_disabledKey) ?? const []).toSet()..remove(_raccoonId);
       final raw = prefs.getString(_learnedKey);
       if (raw != null) _learned = (jsonDecode(raw) as Map).cast<String, String>();
     } catch (_) {}
@@ -69,18 +67,21 @@ class CatalogStore extends ChangeNotifier {
 
   List<StoreSource> _sources() => [RaccoonSource(client), ..._extra]..sort((a, b) => a.priority.compareTo(b.priority));
 
+  // raccoon has no switch, it is always on
   List<StoreStatus> get stores => [
         for (final src in _sources())
-          StoreStatus(
-            id: src.id,
-            name: src.name,
-            enabled: !_disabled.contains(src.id),
-            count: _counts[src.id],
-            error: sourceErrors[src.name],
-          ),
+          if (src.id != _raccoonId)
+            StoreStatus(
+              id: src.id,
+              name: src.name,
+              enabled: !_disabled.contains(src.id),
+              count: _counts[src.id],
+              error: sourceErrors[src.name],
+            ),
       ];
 
   Future<void> setStoreEnabled(String id, bool on) async {
+    if (id == _raccoonId) return;
     final next = {..._disabled};
     if (on) {
       next.remove(id);
@@ -129,22 +130,6 @@ class CatalogStore extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> setUrl(String value) async {
-    final v = value.trim().isEmpty ? defaultCatalogueUrl : value.trim();
-    _url = v.endsWith('/') ? v : '$v/';
-    apps = [];
-    loaded = false;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (_url == defaultCatalogueUrl) {
-        await prefs.remove(_urlKey);
-      } else {
-        await prefs.setString(_urlKey, _url);
-      }
-    } catch (_) {}
-    await load();
   }
 
   void learn(CatalogApp app, PackageInfo info) {

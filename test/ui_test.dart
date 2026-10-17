@@ -377,6 +377,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Connected'), findsOneWidget);
       expect(find.textContaining('10.0.0.1:11443'), findsOneWidget);
+      // raccoon dev store has no switch and no address to edit
+      expect(find.text('Raccoon Dev Store'), findsNothing);
+      expect(find.textContaining('catalogue address'), findsNothing);
     });
 
     testWidgets('desktop: a rail instead', (tester) async {

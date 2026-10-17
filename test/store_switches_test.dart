@@ -46,7 +46,8 @@ void main() {
     final s = make();
     await s.load();
     expect(s.apps.map((a) => a.name), ['Alpha', 'Beta']);
-    expect(s.stores.map((t) => (t.name, t.enabled, t.count)), [('Raccoon Dev Store', true, 1), ('Other Store', true, 1)]);
+    // raccoon has no switch, only the other store shows up to toggle
+    expect(s.stores.map((t) => (t.name, t.enabled, t.count)), [('Other Store', true, 1)]);
   });
 
   test('switching a store off drops its apps and is remembered', () async {
@@ -62,13 +63,30 @@ void main() {
     expect(again.apps.map((a) => a.name), ['Alpha']);
   });
 
-  test('the last store cannot be switched off', () async {
+  test('raccoon dev store has no switch and cannot be turned off', () async {
     final s = make();
     await s.load();
+    expect(s.stores.any((t) => t.id == 'raccoon'), isFalse);
+
     await s.setStoreEnabled('other', false);
     await s.setStoreEnabled('raccoon', false);
-    expect(s.stores.firstWhere((t) => t.id == 'raccoon').enabled, isTrue);
-    expect(s.apps, isNotEmpty);
+    expect(s.apps.map((a) => a.name), ['Alpha']);
+
+    final again = make();
+    await again.restore();
+    await again.load();
+    expect(again.apps.map((a) => a.name), contains('Alpha'));
+  });
+
+  test('a saved setting from before raccoon was locked on is ignored', () async {
+    SharedPreferences.setMockInitialValues({
+      'stores_disabled': ['raccoon', 'other'],
+    });
+    final s = make();
+    await s.restore();
+    await s.load();
+    expect(s.apps.map((a) => a.name), ['Alpha']);
+    expect(s.stores.single.enabled, isFalse);
   });
 
   test('a store that fails shows its error while the others still load', () async {

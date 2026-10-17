@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../catalog/catalog_client.dart';
 import '../state/catalog_store.dart';
 import '../state/console_session.dart';
 import '../theme/brand.dart';
@@ -16,18 +15,12 @@ class ConsolePage extends StatelessWidget {
   final CatalogStore catalog;
   final VoidCallback onDisconnect;
 
-  Future<void> _editCatalogue(BuildContext context) async {
-    final value = await showDialog<String>(context: context, builder: (_) => _CatalogueDialog(current: catalog.url));
-    if (value != null) await catalog.setUrl(value);
-  }
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return ListenableBuilder(
       listenable: Listenable.merge([session, catalog]),
       builder: (context, _) {
-        final custom = catalog.url != defaultCatalogueUrl;
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -90,20 +83,6 @@ class ConsolePage extends StatelessWidget {
                     onChanged: (on) => catalog.setStoreEnabled(st.id, on),
                   ),
                 ListRow(
-                  title: 'Raccoon catalogue address',
-                  subtitle: custom ? catalog.url : 'Default',
-                  trailing: const Icon(Icons.edit_outlined, size: 18, color: Brand.faint),
-                  onTap: () => _editCatalogue(context),
-                ),
-                if (custom)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Brand.s2),
-                      child: TextButton(onPressed: () => catalog.setUrl(''), child: const Text('Use Raccoon Dev Store')),
-                    ),
-                  ),
-                ListRow(
                   title: 'Reload stores',
                   subtitle: catalog.loading ? 'Loading' : 'Fetch every store again',
                   trailing: const Icon(Icons.refresh, size: 18, color: Brand.faint),
@@ -123,42 +102,6 @@ class ConsolePage extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-// owns its controller, so it is disposed with the dialog and not while it is still animating out
-class _CatalogueDialog extends StatefulWidget {
-  const _CatalogueDialog({required this.current});
-
-  final String current;
-
-  @override
-  State<_CatalogueDialog> createState() => _CatalogueDialogState();
-}
-
-class _CatalogueDialogState extends State<_CatalogueDialog> {
-  late final _controller = TextEditingController(text: widget.current);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Catalogue address'),
-      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('A web address for a catalogue laid out like Raccoon Dev Store.'),
-        const SizedBox(height: Brand.s3),
-        TextField(controller: _controller, autofocus: true, keyboardType: TextInputType.url, onSubmitted: (v) => Navigator.pop(context, v)),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Save')),
-      ],
     );
   }
 }
